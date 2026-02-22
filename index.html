@@ -782,6 +782,7 @@
     <div class="modal-body" id="detalle-body"></div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="detalle-delete">Eliminar</button>
+      <button class="btn btn-secondary btn-sm" id="detalle-edit">✏️ Editar</button>
       <button class="btn btn-secondary" onclick="closeModal('detalle')">Cerrar</button>
     </div>
   </div>
@@ -790,6 +791,7 @@
 <script>
 // ==================== DATA ====================
 let pendingFiles = [];
+let editingRevisionId = null;
 
 function loadData() {
   return {
@@ -1111,6 +1113,11 @@ function openModalWithCar(carId) {
 }
 function closeModal(type) {
   document.getElementById('modal-' + type).classList.remove('open');
+  if (type === 'revision') {
+    editingRevisionId = null;
+    document.querySelector('#modal-revision .modal-title').innerHTML = 'Nueva <span style="color:var(--accent)">Revisión</span>';
+    document.querySelector('#modal-revision .btn-primary').textContent = 'Guardar Revisión';
+  }
 }
 
 function updateCarSelects() {
@@ -1158,18 +1165,41 @@ function saveRevision() {
     finalType = 'custom:' + custom;
   }
   const { cars, revisions } = loadData();
-  revisions.push({
-    id: 'r' + Date.now(),
-    carId,
-    type: finalType,
-    date: document.getElementById('rev-date').value,
-    km: parseInt(document.getElementById('rev-km').value) || null,
-    cost: parseFloat(document.getElementById('rev-cost').value) || null,
-    nextDate: document.getElementById('rev-next-date').value || null,
-    nextKm: parseInt(document.getElementById('rev-next-km').value) || null,
-    notes: document.getElementById('rev-notes').value,
-    files: pendingFiles.map(f => ({ name: f.name, size: f.size }))
-  });
+
+  if (editingRevisionId) {
+    // EDIT mode — update existing
+    const idx = revisions.findIndex(r => r.id === editingRevisionId);
+    if (idx !== -1) {
+      const existing = revisions[idx];
+      revisions[idx] = {
+        ...existing,
+        carId,
+        type: finalType,
+        date: document.getElementById('rev-date').value,
+        km: parseInt(document.getElementById('rev-km').value) || null,
+        cost: parseFloat(document.getElementById('rev-cost').value) || null,
+        nextDate: document.getElementById('rev-next-date').value || null,
+        nextKm: parseInt(document.getElementById('rev-next-km').value) || null,
+        notes: document.getElementById('rev-notes').value,
+        files: pendingFiles.length ? pendingFiles.map(f => ({ name: f.name, size: f.size })) : existing.files
+      };
+    }
+    editingRevisionId = null;
+  } else {
+    // NEW mode — create
+    revisions.push({
+      id: 'r' + Date.now(),
+      carId,
+      type: finalType,
+      date: document.getElementById('rev-date').value,
+      km: parseInt(document.getElementById('rev-km').value) || null,
+      cost: parseFloat(document.getElementById('rev-cost').value) || null,
+      nextDate: document.getElementById('rev-next-date').value || null,
+      nextKm: parseInt(document.getElementById('rev-next-km').value) || null,
+      notes: document.getElementById('rev-notes').value,
+      files: pendingFiles.map(f => ({ name: f.name, size: f.size }))
+    });
+  }
   saveData(cars, revisions);
   closeModal('revision');
   ['rev-km','rev-cost','rev-next-date','rev-next-km','rev-notes'].forEach(id => document.getElementById(id).value = '');
@@ -1219,7 +1249,51 @@ function showDetalle(id) {
     ${r.files && r.files.length ? `<div><div class="stat-label" style="margin-bottom:0.5rem;">Documentos adjuntos</div>${r.files.map(f => `<div class="file-item"><span class="file-item-name">📎 ${f.name}</span></div>`).join('')}</div>` : ''}
   `;
   document.getElementById('detalle-delete').onclick = () => deleteRevision(id);
+  document.getElementById('detalle-edit').onclick = () => openEditRevision(id);
   openModal('detalle');
+}
+
+function openEditRevision(id) {
+  const { cars, revisions } = loadData();
+  const r = revisions.find(x => x.id === id);
+  if (!r) return;
+  closeModal('detalle');
+  editingRevisionId = id;
+
+  // Update modal title
+  document.querySelector('#modal-revision .modal-title').innerHTML = 'Editar <span style="color:var(--accent)">Revisión</span>';
+  document.querySelector('#modal-revision .btn-primary').textContent = 'Guardar Cambios';
+
+  // Fill form fields
+  updateCarSelects();
+  setTimeout(() => {
+    document.getElementById('rev-car').value = r.carId;
+
+    // Handle custom type
+    if (r.type && r.type.startsWith('custom:')) {
+      document.getElementById('rev-type').value = 'personalizado';
+      document.getElementById('custom-type-group').style.display = 'block';
+      document.getElementById('rev-custom-type').value = r.type.replace('custom:', '');
+    } else {
+      document.getElementById('rev-type').value = r.type || 'general';
+      document.getElementById('custom-type-group').style.display = 'none';
+    }
+
+    document.getElementById('rev-date').value = r.date || '';
+    document.getElementById('rev-km').value = r.km || '';
+    document.getElementById('rev-cost').value = r.cost || '';
+    document.getElementById('rev-next-date').value = r.nextDate || '';
+    document.getElementById('rev-next-km').value = r.nextKm || '';
+    document.getElementById('rev-notes').value = r.notes || '';
+
+    // Show existing files
+    pendingFiles = [];
+    document.getElementById('file-list').innerHTML = r.files && r.files.length
+      ? r.files.map(f => `<div class="file-item"><span class="file-item-name">📎 ${f.name}</span></div>`).join('')
+      : '';
+  }, 50);
+
+  openModal('revision');
 }
 
 // ==================== FILE UPLOAD ====================
