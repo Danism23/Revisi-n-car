@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AutoRevision</title>
-<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#e8b400">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AutoRevision">
-<link rel="apple-touch-icon" href="icon-512.png">
+<link rel="manifest" href="data:application/json,{%22name%22:%22AutoRevision%22,%22short_name%22:%22AutoRevision%22,%22description%22:%22Gesti%C3%B3n+de+revisiones%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22%230d0f12%22,%22theme_color%22:%22%23e8b400%22,%22icons%22:[{%22src%22:%22https://raw.githubusercontent.com/Danism23/autorevision/main/icon-192.png%22,%22sizes%22:%22192x192%22,%22type%22:%22image/png%22,%22purpose%22:%22any+maskable%22},{%22src%22:%22https://raw.githubusercontent.com/Danism23/autorevision/main/icon-512.png%22,%22sizes%22:%22512x512%22,%22type%22:%22image/png%22,%22purpose%22:%22any+maskable%22}]}">
+<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Danism23/autorevision/main/icon-512.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -1411,7 +1411,17 @@ function showToast(msg, error) {
 
 // ==================== PWA SERVICE WORKER ====================
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const swCode = `
+    const CACHE = 'autorevision-v2';
+    self.addEventListener('install', e => { self.skipWaiting(); });
+    self.addEventListener('activate', e => { self.clients.claim(); });
+    self.addEventListener('fetch', e => {
+      e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    });
+  `;
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl).catch(() => {});
 }
 
 // ==================== START ====================
