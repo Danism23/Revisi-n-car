@@ -664,14 +664,19 @@
       <div class="form-row">
         <div class="form-group">
           <label>Tipo de revisión</label>
-          <select id="rev-type">
+          <select id="rev-type" onchange="toggleCustomType(this)">
             <option value="aceite">🛢️ Cambio de aceite</option>
             <option value="frenos">🔴 Frenos</option>
             <option value="itv">📋 ITV</option>
             <option value="neumaticos">🔵 Neumáticos</option>
             <option value="filtro">🔧 Filtro</option>
             <option value="general">⚙️ Revisión general</option>
+            <option value="personalizado">✏️ Personalizado</option>
           </select>
+        </div>
+        <div class="form-group" id="custom-type-group" style="display:none">
+          <label>Nombre personalizado</label>
+          <input type="text" id="rev-custom-type" placeholder="Ej: Correa de distribución">
         </div>
         <div class="form-group">
           <label>Fecha de revisión</label>
@@ -1092,6 +1097,9 @@ function renderBarChart(containerId, data, labelFn) {
 function openModal(type) {
   if (type === 'revision') {
     document.getElementById('rev-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('rev-type').value = 'aceite';
+    document.getElementById('custom-type-group').style.display = 'none';
+    document.getElementById('rev-custom-type').value = '';
     pendingFiles = [];
     document.getElementById('file-list').innerHTML = '';
   }
@@ -1133,14 +1141,27 @@ function saveCar() {
   renderAll();
 }
 
+function toggleCustomType(sel) {
+  const group = document.getElementById('custom-type-group');
+  group.style.display = sel.value === 'personalizado' ? 'block' : 'none';
+  if (sel.value !== 'personalizado') document.getElementById('rev-custom-type').value = '';
+}
+
 function saveRevision() {
   const carId = document.getElementById('rev-car').value;
   if (!carId) { alert('Selecciona un coche'); return; }
+  const typeVal = document.getElementById('rev-type').value;
+  let finalType = typeVal;
+  if (typeVal === 'personalizado') {
+    const custom = document.getElementById('rev-custom-type').value.trim();
+    if (!custom) { alert('Escribe el nombre del tipo de revisión'); return; }
+    finalType = 'custom:' + custom;
+  }
   const { cars, revisions } = loadData();
   revisions.push({
     id: 'r' + Date.now(),
     carId,
-    type: document.getElementById('rev-type').value,
+    type: finalType,
     date: document.getElementById('rev-date').value,
     km: parseInt(document.getElementById('rev-km').value) || null,
     cost: parseFloat(document.getElementById('rev-cost').value) || null,
@@ -1228,10 +1249,14 @@ function formatDate(d) {
   return `${day}/${m}/${y}`;
 }
 function typeName(t) {
+  if (!t) return '—';
+  if (t.startsWith('custom:')) return t.replace('custom:', '');
   const m = { aceite: 'Aceite', frenos: 'Frenos', itv: 'ITV', neumaticos: 'Neumáticos', filtro: 'Filtro', general: 'General' };
   return m[t] || t;
 }
 function typeIcon(t) {
+  if (!t) return '🔧';
+  if (t.startsWith('custom:')) return '✏️';
   const m = { aceite: '🛢️', frenos: '🔴', itv: '📋', neumaticos: '🔵', filtro: '🔧', general: '⚙️' };
   return m[t] || '🔧';
 }
